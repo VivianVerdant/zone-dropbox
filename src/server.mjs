@@ -143,38 +143,38 @@ function searchLibrary(options) {
 }
 
 // general libraries API
-app.get("/library", (request, response) => {
+app.get("/dropbox", (request, response) => {
 	let entries = searchLibrary(request.query || {});
 	response.json(entries.map(withSrc));
 });
 
-app.get("/library/:media", (request, response) => {
+app.get("/dropbox/:media", (request, response) => {
 	response.json(withSrc(request.libraryEntry));
 });
 
-app.get("/library/:media/status", (request, response) => {
+app.get("/dropbox/:media/status", (request, response) => {
 	response.json("available");
 });
 
-app.get("/library/:media/progress", (request, response) => {
+app.get("/dropbox/:media/progress", (request, response) => {
 	response.json(1);
 });
 
-app.post("/library/:media/request", (request, response) => {
+app.post("/dropbox/:media/request", (request, response) => {
 	response.status(202).send();
 });
 //
 
-app.get("/library-limit", async (request, response) => {
+app.get("/dropbox-limit", async (request, response) => {
 	response.json({ limit: process.env.UPLOAD_LIMIT_MB * 1024 * 1024 });
 });
 
-app.post("/library/auth", requireAuth, async (request, response) => {
+app.post("/dropbox/auth", requireAuth, async (request, response) => {
 	console.log("logged in with auth");
 	response.json({ authorized: true });
 });
 
-app.post("/library", requireAuth, async (request, response) => {
+app.post("/dropbox", requireAuth, async (request, response) => {
 	const title = request.body.title;
 	const url = request.body.url;
 	const mediaId = nanoid();
@@ -194,7 +194,7 @@ app.post("/library", requireAuth, async (request, response) => {
 	save();
 });
 
-app.put("/library/:media/subtitles", requireAuth, async (request, response) => {
+app.put("/dropbox/:media/subtitles", requireAuth, async (request, response) => {
 	const file = request.files.subtitles;
 	const filename = request.libraryEntry.mediaId + ".vtt";
 	const path = join(MEDIA_PATH, filename);
@@ -223,7 +223,7 @@ const patchSchema = joi.object({
 	delTags: joi.array().items(tagSchema).default([]),
 });
 
-app.patch("/library/:media", requireAuth, (request, response) => {
+app.patch("/dropbox/:media", requireAuth, (request, response) => {
 	const { value: actions, error } = patchSchema.validate(request.body);
 
 	if (error) {
@@ -241,7 +241,7 @@ app.patch("/library/:media", requireAuth, (request, response) => {
 	}
 });
 
-app.delete("/library/:media", requireAuth, async (request, response) => {
+app.delete("/dropbox/:media", requireAuth, async (request, response) => {
 	library.delete(request.libraryEntry.mediaId);
 	save();
 
