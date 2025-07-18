@@ -4,9 +4,211 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>zone upload 2</title>
+    <title>Zone Dropbox Admin</title>
     <script src="script.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <!-- <link rel="stylesheet" type="text/css" href="style.css"> -->
+     <style>
+      
+/* prevent weird highlights https://stackoverflow.com/questions/21003535/ */
+.no-select {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* hidden elements should be hidden regardless of their display style */
+[hidden] { display: none !important; }
+
+/* default to width/height including padding and border */
+* { box-sizing: border-box; }
+
+/* make buttons inherit font */ 
+button { font-family: inherit; font-size: inherit; }
+
+/* clickable things should use this cursor imo */
+button, a, summary { cursor: pointer; }
+/* but disabled buttons aren't clickable */
+button[disabled] { cursor: not-allowed; }
+
+/* crisp pixelart */
+canvas, img {
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-crisp-edges;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+html, body {
+    width: 100vw; height: 100vh;
+    margin: auto; padding: 0;
+    max-width: 60em;
+    /*max-height: 30em;*/
+}
+
+html {
+    max-height: unset;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+input {
+    min-width: 0;
+}
+
+#library-container {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    overflow: auto;
+}
+
+#library-container > .controls {
+    top: 0;
+    background: white;
+    width: 100%;
+    position: sticky;
+}
+
+/* filter controls */
+#library-container > .controls > label {
+    display: flex;
+    align-items: center;
+    gap: .5em;
+}
+#library-container > .controls > label > input {
+    flex: auto;
+}
+
+/* sort controls */
+#library-sort-input label {
+    display: inline-block;
+}
+
+#library-container > ul {
+    width: 100%;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.library-row {
+    width: 100%;
+}
+.library-row button {
+    background: none;
+    border: none;
+    width: 100%;
+    padding: .5em;
+    gap: .5em;
+    display: flex;
+    flex-direction: row;
+
+    text-align: initial;
+    font-family: monospace;
+    font-size: 1.2em;
+}
+
+.row-title {
+    flex: 1;
+    overflow-wrap: anywhere;
+}
+
+.row-duration {
+    text-align: right;
+    font-family: monospace;
+    flex: 0;
+}
+
+.library-row:nth-child(2n+0) {
+    background-color: whitesmoke;
+}
+
+.library-row:nth-child(2n+1) {
+    background-color: lightgray;
+}
+
+.tag-music:nth-child(2n+0) {
+    background-color: rgb(220, 222, 250);
+}
+
+.tag-music:nth-child(2n+1) {
+    background-color: rgb(201, 199, 230);
+}
+
+.tag-vine:nth-child(2n+0) {
+    background-color: rgb(220, 250, 224);
+}
+
+.tag-vine:nth-child(2n+1) {
+    background-color: rgb(199, 230, 209);
+}
+
+.library-row button:hover,
+.library-row button:focus-visible {
+    background-color: cornflowerblue;
+}
+
+.library-row[aria-selected="true"] {
+    border-left: solid cornflowerblue 0.5em;
+}
+
+#sidebar {
+    flex-shrink: 0;
+}
+
+#selected-preview {
+    max-width: 100%;
+}
+
+#selected-tags::before {
+    content: 'tags: ';
+}
+
+#subtitles-link[href=''] {
+    display: none;
+}
+#subtitles-link:not([href=''])+span {
+    display: none;
+}
+
+html:not(.authorized) .requires-auth,
+.authorized #auth-form {
+    display: none;
+}
+
+.busy {
+    cursor: wait;
+    background: rgb(200,200,200);
+    filter: contrast(0.5);
+    transition: background 0.5s ease-out, filter 0.5s ease-out;
+}
+
+.busy > * {
+    pointer-events: none;;
+}
+
+@media screen and (min-width: 512px) {
+    body {
+        flex-direction: row;
+    }
+
+    #sidebar {
+        flex-basis: 25em;
+    }
+}
+
+     </style>
     <style id="library-filter-style"></style>
   </head>
   <body onload="start()">
@@ -22,10 +224,12 @@
       <form class="requires-auth" id="upload-form" action="">
         <fieldset>
           <legend>upload</legend>
-          <input name="title" type="text" placeholder="title..." minlength="1" maxlength="64" required>
-          <input name="media" type="file" accept=".mp4,.mp3" required>
-          <input type="submit" value="upload" />
-          <p id="upload-progress">enter a file to upload</p>
+          <input name="title" type="text" placeholder="Title..." minlength="1" maxlength="128" required>
+          <br/>
+          <input name="url" type="text" placeholder="URL..." minlength="1" maxlength="256" required>
+          <br/>
+          <input type="submit" value="Submit" />
+          <p id="upload-progress">Add a Dropbox share link to database.</p>
         </fieldset>
       </form>
       <!-- <form class="requires-auth" id="youtube-form" action="" hidden>
@@ -48,7 +252,7 @@
       </form> -->
       <fieldset id="selected" hidden>
         <legend><span class="requires-auth">edit </span>selected</legend>
-        <video controls id="selected-preview"></video>
+        <video SameSite=None; Secure controls id="selected-preview"></video>
         <form id="retitle-form" class="requires-auth">
           <input id="selected-title" type="text" name="title" placeholder="title..." minlength="1" maxlength="128" required>
           <input type="submit" value="retitle" />
@@ -59,10 +263,13 @@
           <input type="submit" value="untag" />
           <datalist id="tags"></datalist>
         </form>
+        <form id="delete-form" class="requires-auth">
+          <input type="submit" value="delete" />
+        </form>
         <div id="selected-tags">
           tag, tagged, tags
         </div>
-        <form id="subtitles-form">
+        <form id="subtitles-form" hidden>
           <details>
             <summary>subtitles</summary>
             <div>

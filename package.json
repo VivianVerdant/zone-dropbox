@@ -1,5 +1,5 @@
 {
-  "name": "zone-library",
+  "name": "zone-dropbox",
   "version": "1.0.0",
   "description": "",
   "main": "src/server.mjs",

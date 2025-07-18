@@ -1,351 +1,466 @@
-async function libraryRequest(path, { search={}, auth, method="GET", body }={}) {
-    const url = new URL(path, location.origin);
-    url.searchParams = new URLSearchParams(search);
-    const init = {
-        method,
-        headers: { 
-            "Authorization": "Bearer " + auth, 
-            "Content-Type": "application/json",
-        },
-        body,
-    };
-    return fetch(url, init).then((response) => response.json());
+async function formatDropboxLink(str) {
+	const url = new URL(str);
+	console.log(url);
+	const newurl =
+		url.origin +
+		url.pathname +
+		"?rlkey=" +
+		url.searchParams.get("rlkey") +
+		"&raw=1";
+	console.log(newurl);
+
+	return newurl;
+}
+
+async function libraryRequest(
+	path,
+	{ search = {}, auth, method = "GET", body } = {}
+) {
+	const url = new URL(path, location.origin);
+	url.searchParams = new URLSearchParams(search);
+	const init = {
+		method,
+		headers: {
+			Authorization: "Bearer " + auth,
+			"Content-Type": "application/json",
+		},
+		body,
+	};
+	return fetch(url, init).then((response) => response.json());
 }
 
 async function checkLibraryAuth(auth) {
-    return libraryRequest("/library/auth", { method: "POST", auth });
+	return libraryRequest("/library/auth", { method: "POST", auth });
 }
 
 async function searchLibrary(params) {
-    return libraryRequest("/library", { search: params });
+	return libraryRequest("/library", { search: params });
 }
 
 async function getLibraryEntry(id) {
-    return libraryRequest("/library/" + id);
+	return libraryRequest("/library/" + id);
 }
 
 async function deleteLibraryEntry(id, auth) {
-    return libraryRequest("/library/" + id, { method: "DELETE", auth });
+	return libraryRequest("/library/" + id, { method: "DELETE", auth });
 }
 
 async function retitleLibraryEntry(id, auth, title) {
-    const body = JSON.stringify({ setTitle: title });
-    return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
+	const body = JSON.stringify({ setTitle: title });
+	return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
 }
 
 async function tagLibraryEntry(id, auth, ...tags) {
-    const body = JSON.stringify({ addTags: tags });
-    return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
+	const body = JSON.stringify({ addTags: tags });
+	return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
 }
 
 async function untagLibraryEntry(id, auth, ...tags) {
-    const body = JSON.stringify({ delTags: tags });
-    return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
+	const body = JSON.stringify({ delTags: tags });
+	return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
 }
 
 async function getSizeLimit() {
-    const url = new URL("/library-limit", location.origin);
-    return fetch(url).then((response) => response.json()).then((j) => j.limit);
+	const url = new URL("/library-limit", location.origin);
+	return fetch(url)
+		.then((response) => response.json())
+		.then((j) => j.limit);
 }
 
-async function uploadMedia(auth, media, title) {
-    const url = new URL("/library", location.origin);
-    const body = new FormData();
-    body.set("title", title);
-    body.set("media", media);
-    const init = {
-        method: "POST",
-        headers: { 
-            "Authorization": "Bearer " + auth,
-        },
-        body,
-    };
-    return fetch(url, init).then((response) => response.json());
+async function uploadMedia(auth, title, srcurl) {
+	const url = new URL("/library", location.origin);
+	const body = new FormData();
+	body.set("title", title);
+	body.set("url", srcurl);
+	const init = {
+		method: "POST",
+		headers: {
+			Authorization: "Bearer " + auth,
+		},
+		body,
+	};
+	return fetch(url, init).then((response) => response.json());
 }
 
 async function uploadSubtitle(auth, id, subtitles) {
-    const url = new URL(`/library/${id}/subtitles`, location.origin);
-    const body = new FormData();
-    body.set("subtitles", subtitles);
-    const init = {
-        method: "PUT",
-        headers: { 
-            "Authorization": "Bearer " + auth,
-        },
-        body,
-    };
-    return fetch(url, init).then((response) => response.json());
+	const url = new URL(`/library/${id}/subtitles`, location.origin);
+	const body = new FormData();
+	body.set("subtitles", subtitles);
+	const init = {
+		method: "PUT",
+		headers: {
+			Authorization: "Bearer " + auth,
+		},
+		body,
+	};
+	return fetch(url, init).then((response) => response.json());
 }
 
 async function refresh() {
-    const entries = await searchLibrary();
+	const entries = await searchLibrary();
 
-    const container = document.querySelector("#library-container ul");
-    container.replaceChildren();
-    entries.forEach((entry, index) => {
-        const classes = ["library-row", ...entry.tags.map(tag => "tag-" + tag)].join(" ");
-        const row = html(
-            'li',
-            { class: classes, 'data-title': entry.title, 'data-index': index, 'data-id': entry.mediaId },
-            html('button', {}, 
-                html('span', { class: 'row-title' }, entry.title),
-                html('time', { class: 'row-duration', datetime: `${entry.duration / 1000}S` }, secondsToTime(entry.duration / 1000))
-            )
-        );
-        row.children[0].addEventListener("click", () => select(entry));
-        container.appendChild(row);
-    });
-    const tagContainer = document.getElementById('tags');
-    tagContainer.textContent = '';
-        Object.entries(
-            entries
-                .flatMap(i => i.tags)
-                .reduce((tags, tag) => {
-                    tags[tag] = (tags[tag] || 0) + 1;
-                    return tags;
-                }, {})
-        )
-            .sort(([, a], [, b]) => b - a)
-            .forEach(([tag]) => {
-                const option = document.createElement('option');
-                option.value = tag;
-                tagContainer.appendChild(option);
-            });
+	const container = document.querySelector("#library-container ul");
+	container.replaceChildren();
+	entries.forEach((entry, index) => {
+		const classes = [
+			"library-row",
+			...entry.tags.map((tag) => "tag-" + tag),
+		].join(" ");
+		const row = html(
+			"li",
+			{
+				class: classes,
+				"data-title": entry.title,
+				"data-index": index,
+				"data-id": entry.mediaId,
+			},
+			html(
+				"button",
+				{},
+				html("span", { class: "row-title" }, entry.title),
+				html(
+					"time",
+					{
+						class: "row-duration",
+						datetime: `${entry.duration / 1000}S`,
+					},
+					secondsToTime(entry.duration / 1000)
+				)
+			)
+		);
+		row.children[0].addEventListener("click", () => select(entry));
+		container.appendChild(row);
+	});
+	const tagContainer = document.getElementById("tags");
+	tagContainer.textContent = "";
+	Object.entries(
+		entries
+			.flatMap((i) => i.tags)
+			.reduce((tags, tag) => {
+				tags[tag] = (tags[tag] || 0) + 1;
+				return tags;
+			}, {})
+	)
+		.sort(([, a], [, b]) => b - a)
+		.forEach(([tag]) => {
+			const option = document.createElement("option");
+			option.value = tag;
+			tagContainer.appendChild(option);
+		});
 
-    return entries;
+	return entries;
 }
 
-const pad2 = (part) => (part.toString().length >= 2 ? part.toString() : '0' + part.toString());
+const pad2 = (part) =>
+	part.toString().length >= 2 ? part.toString() : "0" + part.toString();
 function secondsToTime(seconds) {
-    if (isNaN(seconds)) return '??:??';
+	if (isNaN(seconds)) return "??:??";
 
-    const s = Math.floor(seconds % 60);
-    const m = Math.floor(seconds / 60) % 60;
-    const h = Math.floor(seconds / 3600);
+	const s = Math.floor(seconds % 60);
+	const m = Math.floor(seconds / 60) % 60;
+	const h = Math.floor(seconds / 3600);
 
-    return h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
+	return h > 0 ? `${pad2(h)}:${pad2(m)}:${pad2(s)}` : `${pad2(m)}:${pad2(s)}`;
 }
 
 /**
  * @template {keyof HTMLElementTagNameMap} K
- * @param {K} tagName 
- * @param {*} attributes 
- * @param  {...(Node | string)} children 
+ * @param {K} tagName
+ * @param {*} attributes
+ * @param  {...(Node | string)} children
  * @returns {HTMLElementTagNameMap[K]}
  */
 function html(tagName, attributes = {}, ...children) {
-    const element = /** @type {HTMLElementTagNameMap[K]} */ (document.createElement(tagName)); 
-    Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
-    children.forEach((child) => element.append(child));
-    return element;
+	const element = /** @type {HTMLElementTagNameMap[K]} */ (
+		document.createElement(tagName)
+	);
+	Object.entries(attributes).forEach(([name, value]) =>
+		element.setAttribute(name, value)
+	);
+	children.forEach((child) => element.append(child));
+	return element;
 }
 
 async function start() {
-    let auth;
-    document.getElementById("auth-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        form.classList.add('busy');
-        try {
-            const formData = new FormData(form);
-            const authAttempt = formData.get('password');
-            const result = await checkLibraryAuth(authAttempt).catch(() => ({}));
-            if (result.authorized) {
-                auth = authAttempt;
-                document.documentElement.classList.add('authorized');
-            }
-        } finally {
-            form.classList.remove('busy');
-        }
-    });
+	let auth;
+	document
+		.getElementById("auth-form")
+		.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const form = event.currentTarget;
+			form.classList.add("busy");
+			try {
+				const formData = new FormData(form);
+				const authAttempt = formData.get("password");
+				const result = await checkLibraryAuth(authAttempt).catch(
+					() => ({})
+				);
+				if (result.authorized) {
+					auth = authAttempt;
+					document.documentElement.classList.add("authorized");
+				}
+			} finally {
+				form.classList.remove("busy");
+			}
+		});
 
-    document.getElementById("retitle-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        form.classList.add('busy');
-        try {
-            const formData = new FormData(form);
-            const title = formData.get("title");
-            const result = await retitleLibraryEntry(selectedEntry.mediaId, auth, title);
+	document
+		.getElementById("retitle-form")
+		.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const form = event.currentTarget;
+			form.classList.add("busy");
+			try {
+				const formData = new FormData(form);
+				const title = formData.get("title");
+				const result = await retitleLibraryEntry(
+					selectedEntry.mediaId,
+					auth,
+					title
+				);
 
-            const entries = await refresh();
+				const entries = await refresh();
 
-            if (result.mediaId) {
-                const selected = entries.find((entry) => entry.mediaId === selectedEntry.mediaId);
-                select(selected);
-            }
-        } finally {
-            form.classList.remove('busy');
-        }
-    });
+				if (result.mediaId) {
+					const selected = entries.find(
+						(entry) => entry.mediaId === selectedEntry.mediaId
+					);
+					select(selected);
+				}
+			} finally {
+				form.classList.remove("busy");
+			}
+		});
 
-    document.getElementById("tag-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        form.classList.add('busy');
-        try {
-            const formData = new FormData(form);
-            const tagname = formData.get("tagname");
-            const action = event.submitter.value === 'tag' ? tagLibraryEntry : untagLibraryEntry;
-            const result = await action(selectedEntry.mediaId, auth, tagname);
+	document
+		.getElementById("delete-form")
+		.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const form = event.currentTarget;
+			//form.classList.add("busy");
+			try {
+				const result = await deleteLibraryEntry(
+					selectedEntry.mediaId,
+					auth
+				);
+				console.log(result);
 
-            const entries = await refresh();
+				const entries = await refresh();
+				console.log(entries);
+			} finally {
+				document
+					.getElementById("selected")
+					.setAttribute("hidden", true);
+			}
+		});
 
-            if (result.mediaId) {
-                const selected = entries.find((entry) => entry.mediaId === selectedEntry.mediaId);
-                select(selected);
-                form.reset();
-            }
-        } finally {
-            form.classList.remove('busy');
-        }
-    });
+	document
+		.getElementById("tag-form")
+		.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const form = event.currentTarget;
+			form.classList.add("busy");
+			try {
+				const formData = new FormData(form);
+				const tagname = formData.get("tagname");
+				const action =
+					event.submitter.value === "tag"
+						? tagLibraryEntry
+						: untagLibraryEntry;
+				const result = await action(
+					selectedEntry.mediaId,
+					auth,
+					tagname
+				);
 
-    const uploadProgress = document.getElementById("upload-progress");
-    document.getElementById("upload-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        form.classList.add('busy');
-        try {
-            const formData = new FormData(form);
-            const title = formData.get("title");
-            const media = formData.get("media");
+				const entries = await refresh();
 
-            uploadProgress.innerText = "";
-            uploadProgress.appendChild(document.createElement('progress'));
+				if (result.mediaId) {
+					const selected = entries.find(
+						(entry) => entry.mediaId === selectedEntry.mediaId
+					);
+					select(selected);
+					form.reset();
+				}
+			} finally {
+				form.classList.remove("busy");
+			}
+		});
 
-            const limit = await getSizeLimit();
-            if (media.size > limit) {
-                throw Error(`File too big. Limit ${(limit / 1024 / 1024)|0} MiB`)
-            }
+	const uploadProgress = document.getElementById("upload-progress");
+	document
+		.getElementById("upload-form")
+		.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const form = event.currentTarget;
+			form.classList.add("busy");
+			try {
+				const formData = new FormData(form);
+				const title = formData.get("title");
+				const url = await formatDropboxLink(formData.get("url"));
 
-            const result = await uploadMedia(auth, media, title);
-            const entries = await refresh();
+				uploadProgress.innerText = "";
+				uploadProgress.appendChild(document.createElement("progress"));
 
-            if (result.mediaId) {
-                uploadProgress.innerHTML = "done!";
-                const selected = entries.find((entry) => entry.mediaId === result.mediaId);
-                select(selected);
-            } else {
-                uploadProgress.innerHTML = result.title;
-            }
-        } catch (e) {
-            uploadProgress.innerHTML = e.toString();
-        } finally {
-            form.classList.remove('busy');
-        }
-    });
+				const result = await uploadMedia(auth, title, url);
+				const entries = await refresh();
 
-    document.getElementById("subtitles-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        form.classList.add('busy');
-        try {
-            const formData = new FormData(form);
-            const subtitle = formData.get("file");
-            const result = await uploadSubtitle(auth, selectedEntry.mediaId, subtitle);
-            const entries = await refresh();
+				if (result.mediaId) {
+					uploadProgress.innerHTML = "done!";
+					const selected = entries.find(
+						(entry) => entry.mediaId === result.mediaId
+					);
+					select(selected);
+				} else {
+					uploadProgress.innerHTML = result.title;
+				}
+			} catch (e) {
+				uploadProgress.innerHTML = e.toString();
+			} finally {
+				form.classList.remove("busy");
+			}
+		});
 
-            if (result.mediaId) {
-                const selected = entries.find((entry) => entry.mediaId === result.mediaId);
-                select(selected);
-            }
-        } finally {
-            form.classList.remove('busy');
-        }
-    });
+	document
+		.getElementById("subtitles-form")
+		.addEventListener("submit", async (event) => {
+			event.preventDefault();
+			const form = event.currentTarget;
+			form.classList.add("busy");
+			try {
+				const formData = new FormData(form);
+				const subtitle = formData.get("file");
+				const result = await uploadSubtitle(
+					auth,
+					selectedEntry.mediaId,
+					subtitle
+				);
+				const entries = await refresh();
 
-    // document.getElementById("youtube-form").addEventListener("submit", async (event) => {
-    //     event.preventDefault();
-    //     const form = event.currentTarget;
-    //     form.classList.add('busy');
-    //     try {
-    //         const formData = new FormData(form);
-    //         const url = formData.get("url");
-    //         form.reset();
-    //         const youtubeId = new URL(url).searchParams.get("v");
-    //         console.log(youtubeId);
+				if (result.mediaId) {
+					const selected = entries.find(
+						(entry) => entry.mediaId === result.mediaId
+					);
+					select(selected);
+				}
+			} finally {
+				form.classList.remove("busy");
+			}
+		});
 
-    //         const result = await downloadYoutube(auth, youtubeId);
-    //         const entries = await refresh();
+	// document.getElementById("youtube-form").addEventListener("submit", async (event) => {
+	//     event.preventDefault();
+	//     const form = event.currentTarget;
+	//     form.classList.add('busy');
+	//     try {
+	//         const formData = new FormData(form);
+	//         const url = formData.get("url");
+	//         form.reset();
+	//         const youtubeId = new URL(url).searchParams.get("v");
+	//         console.log(youtubeId);
 
-    //         if (result.mediaId) {
-    //             const selected = entries.find((entry) => entry.mediaId === result.mediaId);
-    //             select(selected);
-    //         }
-    //     } finally {
-    //         form.classList.remove('busy');
-    //     }
-    // });
+	//         const result = await downloadYoutube(auth, youtubeId);
+	//         const entries = await refresh();
 
-    // document.getElementById("tweet-form").addEventListener("submit", async (event) => {
-    //     event.preventDefault();
-    //     const form = event.currentTarget;
-    //     form.classList.add('busy');
-    //     try {
-    //         const formData = new FormData(form);
-    //         const url = formData.get("url");
-    //         form.reset();
-    //         const result = await downloadTweet(auth, url);
-    //         const entries = await refresh();
+	//         if (result.mediaId) {
+	//             const selected = entries.find((entry) => entry.mediaId === result.mediaId);
+	//             select(selected);
+	//         }
+	//     } finally {
+	//         form.classList.remove('busy');
+	//     }
+	// });
 
-    //         if (result.mediaId) {
-    //             const selected = entries.find((entry) => entry.mediaId === result.mediaId);
-    //             select(selected);
-    //         }
-    //     } finally {
-    //         form.classList.remove('busy');
-    //     }
-    // });
+	// document.getElementById("tweet-form").addEventListener("submit", async (event) => {
+	//     event.preventDefault();
+	//     const form = event.currentTarget;
+	//     form.classList.add('busy');
+	//     try {
+	//         const formData = new FormData(form);
+	//         const url = formData.get("url");
+	//         form.reset();
+	//         const result = await downloadTweet(auth, url);
+	//         const entries = await refresh();
 
-    const filterStyle = document.getElementById("library-filter-style");
-    document.getElementById("library-filter-input").addEventListener("input", (event) => {
-        filterStyle.textContent = event.currentTarget.value && `
-.library-row:not([data-title*="${event.currentTarget.value.replace(/"/g, '\\"')}"i]) {
+	//         if (result.mediaId) {
+	//             const selected = entries.find((entry) => entry.mediaId === result.mediaId);
+	//             select(selected);
+	//         }
+	//     } finally {
+	//         form.classList.remove('busy');
+	//     }
+	// });
+
+	const filterStyle = document.getElementById("library-filter-style");
+	document
+		.getElementById("library-filter-input")
+		.addEventListener("input", (event) => {
+			filterStyle.textContent =
+				event.currentTarget.value &&
+				`
+.library-row:not([data-title*="${event.currentTarget.value.replace(
+					/"/g,
+					'\\"'
+				)}"i]) {
     display: none;
 }`;
-    });
+		});
 
-    function onSort(event) {
-        const by = event.currentTarget.value;
-        const container = document.querySelector("#library-container ul");
-        const children = Array.from(container.children);
-        children.sort((a, b) => (a.dataset[by] || '').localeCompare((b.dataset[by] || ''), undefined, { sensitivity: 'base', ignorePunctuation: true, numeric: true }));
-        container.children.length = 0;
-        children.forEach(c => container.appendChild(c));
-    };
-    Array.from(document.querySelectorAll("#library-sort-input input")).forEach(i => i.addEventListener("change", onSort));
+	function onSort(event) {
+		const by = event.currentTarget.value;
+		const container = document.querySelector("#library-container ul");
+		const children = Array.from(container.children);
+		children.sort((a, b) =>
+			(a.dataset[by] || "").localeCompare(
+				b.dataset[by] || "",
+				undefined,
+				{ sensitivity: "base", ignorePunctuation: true, numeric: true }
+			)
+		);
+		container.children.length = 0;
+		children.forEach((c) => container.appendChild(c));
+	}
+	Array.from(document.querySelectorAll("#library-sort-input input")).forEach(
+		(i) => i.addEventListener("change", onSort)
+	);
 
-    refresh();
+	refresh();
 }
 
 let selectedEntry = undefined;
 function select(entry) {
-    const selectedContainer = document.getElementById("selected");
-    const previewVideo = document.getElementById("selected-preview");
-    const titleInput = document.getElementById("selected-title");
-    const tagsContainer = document.getElementById("selected-tags");
-    const subtitlesLink = document.getElementById('subtitles-link');
+	console.log(entry);
+	const selectedContainer = document.getElementById("selected");
+	const previewVideo = document.getElementById("selected-preview");
+	const titleInput = document.getElementById("selected-title");
+	const tagsContainer = document.getElementById("selected-tags");
+	const subtitlesLink = document.getElementById("subtitles-link");
 
-    selectedEntry = entry;
-    selectedContainer.hidden = false;
-    previewVideo.src = new URL(entry.src, location.origin);
-    titleInput.value = entry.title;
-    tagsContainer.innerHTML = entry.tags.join(", ");
+	selectedEntry = entry;
+	selectedContainer.hidden = false;
+	previewVideo.src = new URL(entry.url);
+	titleInput.value = entry.title;
+	tagsContainer.innerHTML = entry.tags.join(", ");
 
-    previewVideo.innerHTML = "";
-    if (entry.subtitle) {
-        const subtrack = document.createElement('track');
-        subtrack.kind = 'subtitles';
-        subtrack.label = 'english';
-        subtrack.src = new URL(entry.subtitle, location.origin);
-        previewVideo.appendChild(subtrack);
-        previewVideo.textTracks[0].mode = 'showing';
-        subtitlesLink.href = subtrack.src;
-    } else {
-        subtitlesLink.href = '';
-    }
+	previewVideo.innerHTML = "";
+	if (entry.subtitle) {
+		const subtrack = document.createElement("track");
+		subtrack.kind = "subtitles";
+		subtrack.label = "english";
+		subtrack.src = new URL(entry.subtitle, location.origin);
+		previewVideo.appendChild(subtrack);
+		previewVideo.textTracks[0].mode = "showing";
+		subtitlesLink.href = subtrack.src;
+	} else {
+		subtitlesLink.href = "";
+	}
 
-    delete document.querySelector('.library-row[aria-selected="true"]')?.removeAttribute('aria-selected');
-    document.querySelector(`#library-container ul .library-row[data-id="${entry.mediaId}"]`)?.setAttribute('aria-selected', true);
+	delete document
+		.querySelector('.library-row[aria-selected="true"]')
+		?.removeAttribute("aria-selected");
+	document
+		.querySelector(
+			`#library-container ul .library-row[data-id="${entry.mediaId}"]`
+		)
+		?.setAttribute("aria-selected", true);
 }
