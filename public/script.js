@@ -30,45 +30,45 @@ async function libraryRequest(
 }
 
 async function checkLibraryAuth(auth) {
-	return libraryRequest("/library/auth", { method: "POST", auth });
+	return libraryRequest("/db/dropbox/auth", { method: "POST", auth });
 }
 
 async function searchLibrary(params) {
-	return libraryRequest("/library", { search: params });
+	return libraryRequest("/db/dropbox", { search: params });
 }
 
 async function getLibraryEntry(id) {
-	return libraryRequest("/library/" + id);
+	return libraryRequest("/db/dropbox/" + id);
 }
 
 async function deleteLibraryEntry(id, auth) {
-	return libraryRequest("/library/" + id, { method: "DELETE", auth });
+	return libraryRequest("/db/dropbox/" + id, { method: "DELETE", auth });
 }
 
 async function retitleLibraryEntry(id, auth, title) {
 	const body = JSON.stringify({ setTitle: title });
-	return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
+	return libraryRequest("/db/dropbox/" + id, { method: "PATCH", auth, body });
 }
 
 async function tagLibraryEntry(id, auth, ...tags) {
 	const body = JSON.stringify({ addTags: tags });
-	return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
+	return libraryRequest("/db/dropbox/" + id, { method: "PATCH", auth, body });
 }
 
 async function untagLibraryEntry(id, auth, ...tags) {
 	const body = JSON.stringify({ delTags: tags });
-	return libraryRequest("/library/" + id, { method: "PATCH", auth, body });
+	return libraryRequest("/db/dropbox/" + id, { method: "PATCH", auth, body });
 }
 
 async function getSizeLimit() {
-	const url = new URL("/library-limit", location.origin);
+	const url = new URL("/db/dropbox-limit", location.origin);
 	return fetch(url)
 		.then((response) => response.json())
 		.then((j) => j.limit);
 }
 
 async function uploadMedia(auth, title, srcurl) {
-	const url = new URL("/library", location.origin);
+	const url = new URL("/db/dropbox", location.origin);
 	const body = new FormData();
 	body.set("title", title);
 	body.set("url", srcurl);
@@ -83,7 +83,7 @@ async function uploadMedia(auth, title, srcurl) {
 }
 
 async function uploadSubtitle(auth, id, subtitles) {
-	const url = new URL(`/library/${id}/subtitles`, location.origin);
+	const url = new URL(`/db/dropbox/${id}/subtitles`, location.origin);
 	const body = new FormData();
 	body.set("subtitles", subtitles);
 	const init = {

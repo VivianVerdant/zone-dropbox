@@ -69,6 +69,7 @@ app.use("/media", express.static("media"));
  * @param {express.NextFunction} next
  */
 function requireAuth(request, response, next) {
+	console.log(request);
 	const auth = request.headers.authorization;
 
 	if (
@@ -124,7 +125,7 @@ function withSrc(info) {
 }
 
 function searchLibrary(options) {
-	console.log(options);
+	//console.log(options);
 	let results = Array.from(library.values());
 
 	if (options.tag) {
@@ -138,7 +139,7 @@ function searchLibrary(options) {
 			entry.title.toLowerCase().includes(search)
 		);
 	}
-	console.log(results);
+	//console.log(results);
 	return results;
 }
 
